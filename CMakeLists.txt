@@ -7,6 +7,9 @@ set(CMAKE_COLOR_DIAGNOSTICS TRUE)
 # Output compile commands json for language servers in editors
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+# Add our cmake module path to the search paths cmake can use.
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 # Finally, test the compiler and create the project.
 project(ecopy
   VERSION 0.0.1
@@ -14,8 +17,8 @@ project(ecopy
   LANGUAGES C
 )
 
-# TODO: Test for io_uring things?
-
+# Find liburing
+find_package(liburing REQUIRED)
 
 # Generate our configure file
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/sysconf.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/sysconf.h)
@@ -63,6 +66,7 @@ target_include_directories(${PROJECT_NAME}
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}
+	${LIBURING_INCLUDE_DIR}
 )
 
 # Set linker flags (if any)
@@ -71,4 +75,4 @@ target_include_directories(${PROJECT_NAME}
 #)
 
 # Add libraries to link against (if any)
-#target_link_libraries()
+target_link_libraries(${PROJECT_NAME} ${LIBURING_LIBRARY})

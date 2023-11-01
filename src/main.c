@@ -3,6 +3,6 @@
 
 int main(int argc, const char **argv)
 {
-  printf("lol\n");
-  return EXIT_SUCCESS;
+	printf("lol\n");
+	return EXIT_SUCCESS;
 }
