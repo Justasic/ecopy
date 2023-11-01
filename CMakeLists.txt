@@ -33,6 +33,8 @@ message(STATUS "SOURCES: ${C_SOURCE_FILES}")
 set_source_files_properties(${C_SOURCE_FILES}
   PROPERTIES
     LANGUAGE C
+	COMPILE_DEFINITIONS
+		_GNU_SOURCE=1
 )
 
 # Create the target
