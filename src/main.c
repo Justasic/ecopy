@@ -2,17 +2,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ftw.h>
+#include <strings.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <liburing.h>
 #include <unistd.h>
+
+#include "directory.h"
+
+__attribute__((noreturn))
+void usage(int argc, const char **argv) 
+{
+	// Handle weird usecase where argv[0] may be null.
+	if (argc < 1)
+		fprintf(stderr, "Usage: ecopy SRC [SRC ...] DEST\n");
+	else
+		fprintf(stderr, "Usage: %s SRC [SRC ...] DEST\n", argv[0]);
+	exit(EXIT_FAILURE);
+}
 
 int main(int argc, const char **argv)
 {
 	// TODO: parse command line arguments.
 	// TODO: Warn/error about not running as root?
 	int euid = geteuid();
-	
+
+	if (argc < 3)
+		usage(argc, argv);
+
+	printf("Here\n");
+	const char *destination = argv[argc-1];
+
 	// ring parameters.
 	struct io_uring_params ring_params;
 	bzero(&ring_params, sizeof(ring_params));
@@ -81,6 +101,23 @@ int main(int argc, const char **argv)
 
 	// Enter io loop to begin recursive descent.
 	// use nftw
+	
+	// Iterate each argument of argv, skipping the first element (our own name)
+	// and the last element (the destination path)
+	for (size_t i = 1; i < argc-1; ++i)
+	{
+		const char *path = argv[i];
+		if (!strcasecmp(path, "-h") || !strcasecmp(path, "--help"))
+			usage(argc, argv);
+
+		// Perform a recursive descent into each path given.
+		// Walk the directory, FTW_MOUNT keeps it in the same filesystem
+		// FTW_PHYS means symbolic links won't be dereferenced.
+		ret = nftw64(path, descend_directory64, nofile_limit.rlim_cur, FTW_MOUNT | FTW_PHYS);
+		if (ret < 0)
+			fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
+	}
+
 	printf("lol\n");
 
 	// Close the queue, we're done.
