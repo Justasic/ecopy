@@ -98,7 +98,7 @@ int main(int argc, const char **argv)
 	// stack-allocate the ring, avoiding the heap.
 	ring = &local_ring;
 	// NOTE: not sure if 8 entries is enough, may need to be more?
-	ret = io_uring_queue_init_params(8, ring, &ring_params);
+	ret = io_uring_queue_init_params(40, ring, &ring_params);
 	if (ret < 0)
 	{
 		fprintf(stderr, "Failed to initialize io_uring: %s (%d)\n", strerror(-ret), -ret);
@@ -133,6 +133,7 @@ int main(int argc, const char **argv)
 		iter->running = false;
 		int res;
 		thrd_join(iter->handle, &res);
+		// Note: we do leak memory here, but we're exiting anyway so it doesn't matter.
 	}
 
 	// Close the queue, we're done.

@@ -65,7 +65,6 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 			sqe->user_data = -1;
 			io_uring_prep_mkdir(sqe, buffer, sb->st_mode);
-			io_uring_submit(ring);
 			break;
 		}
 		case FTW_F: // Regular file
@@ -86,7 +85,6 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 			io_uring_prep_openat(sqe, AT_FDCWD, cp->source, 0, sb->st_mode);
 			io_uring_sqe_set_data(sqe, cp);
-			io_uring_submit(ring);
 
 			break;
 		}
@@ -106,7 +104,6 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 			sqe->user_data = -1;
 			io_uring_prep_symlink(sqe, buffer, symbuffer);
-			io_uring_submit(ring);
 			break;
 		}
 		// case FTW_SLN: // Symbolic Link to non-existing file
@@ -116,6 +113,13 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 		case FTW_DNR:
 			fprintf(stderr, "Cannot read %s\n", buffer);
 			break;
+	}
+
+	int ret = io_uring_submit(ring);
+	if (ret < 0)
+	{
+		fprintf(stderr, "Failed to submit new submission entries: %s\n", strerror(-ret));
+		exit(EXIT_FAILURE);
 	}
 
 	return 0;

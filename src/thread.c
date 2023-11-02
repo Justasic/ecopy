@@ -21,7 +21,7 @@ int process_completions(void *value)
 		ts.tv_sec = 0;
 		int res = io_uring_wait_cqes(tstate->ring, &cqe_head, 5, &ts, NULL);
 
-		if (res < 0)
+		if (res < 0 && res != -ETIME)
 		{
 			fprintf(stderr, "Error waiting for completion events: %s\n", strerror(-res));
 			exit(EXIT_FAILURE);
@@ -61,6 +61,7 @@ void start_process_thread(struct io_uring *uring)
 	struct thread_state *tstate = malloc(sizeof(struct thread_state));
 	bzero(tstate, sizeof(struct thread_state));
 	tstate->ring = uring;
+	tstate->running = true;
 
 	errno = 0;
 	int res = thrd_create(&tstate->handle, process_completions, tstate);
