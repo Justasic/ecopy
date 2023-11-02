@@ -1,31 +1,14 @@
 #include "directory.h"
+#include <fcntl.h>
 #include <ftw.h>
 #include <liburing.h>
+#include <liburing/io_uring.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-// Contains the state of an on-going copy being performed
-struct copystate
-{
-	// Where the source file is from
-	const char *source;
-	// Where it's going
-	const char *destination;
-	// What we need to do next with regards to our ring state.
-	int ring_state;
-	// Information on the file.
-	struct stat64 *sb_source;
-	// It's open file descriptor for copying
-	int fd;
-	// Current copied amount (offset into the file)
-	size_t offset;
-	// Total size of the file.
-	size_t total_size;
-};
-
-void write_regular_file(const char *fsource, const char *fdest, struct copystate *state)
+void write_regular_file(struct io_uring *uring, struct copystate *state)
 {
 	// Function can be called multiple times, call flow should work like:
 	// IORING_OP_OPENAT
@@ -34,6 +17,28 @@ void write_regular_file(const char *fsource, const char *fdest, struct copystate
 	// IORING_OP_READ_FIXED
 	// IORING_OP_WRITE_FIXED
 	// IORING_OP_CLOSE
+
+	switch (state->ring_state)
+	{
+		case IORING_OP_OPENAT:
+			break;
+		case IORING_OP_FADVISE:
+			break;
+		case IORING_OP_FALLOCATE:
+			break;
+		case IORING_OP_READ_FIXED:
+			break;
+		case IORING_OP_WRITE_FIXED:
+			break;
+		case IORING_OP_CLOSE:
+		{
+			// deallocate the object, it's no longer needed.
+			free(state->source);
+			free(state->destination);
+			free(state);
+			break;
+		}
+	}
 }
 
 int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag, struct FTW *ftwbuf)
@@ -58,13 +63,33 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 		{
 			printf("Dir: %s\n", buffer);
 			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+			sqe->user_data = -1;
 			io_uring_prep_mkdir(sqe, buffer, sb->st_mode);
 			io_uring_submit(ring);
 			break;
 		}
 		case FTW_F: // Regular file
+		{
 			printf("File: %s\n", buffer);
+
+			// TODO: Expensive allocations, can we mitigate somehow?
+			struct copystate *cp = malloc(sizeof(struct copystate) + sb->st_blksize);
+			bzero(cp, sizeof(struct copystate));
+
+			cp->copybufsz   = sb->st_blksize;
+			cp->destination = strdup(buffer);
+			cp->source      = strdup(fpath);
+			cp->ring_state  = IORING_OP_OPENAT;
+			cp->total_size  = sb->st_size;
+
+			// prepare the first SQE
+			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+			io_uring_prep_openat(sqe, AT_FDCWD, cp->source, 0, sb->st_mode);
+			io_uring_sqe_set_data(sqe, cp);
+			io_uring_submit(ring);
+
 			break;
+		}
 		case FTW_SLN: // Symbolic Link to non-existing file
 			__attribute__((fallthrough));
 		case FTW_SL: // Symbolic Link
@@ -79,6 +104,7 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 
 			printf("Symlink: %s -> %s\n", buffer, symbuffer);
 			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+			sqe->user_data = -1;
 			io_uring_prep_symlink(sqe, buffer, symbuffer);
 			io_uring_submit(ring);
 			break;
@@ -91,23 +117,6 @@ int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag
 			fprintf(stderr, "Cannot read %s\n", buffer);
 			break;
 	}
-
-	// Wait for CQEs here and process them.
-	// TODO: migrate this to it's own thread?
-	// struct io_uring_cqe *cqe;
-	//
-	// struct __kernel_timespec ts;
-	// ts.tv_sec = 0;
-	// ts.tv_nsec = 200;
-	//
-	// int res = io_uring_wait_cqe_timeout(ring, &cqe, &ts);
-	// if (res < 0)
-	// {
-	// 	fprintf(stderr, "Failed to get CQEs: %s\n", strerror(errno));
-	// 	exit(EXIT_FAILURE);
-	// }
-
-
 
 	return 0;
 }

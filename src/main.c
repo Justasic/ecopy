@@ -6,9 +6,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <liburing.h>
+#include <threads.h>
 #include <unistd.h>
 
 #include "directory.h"
+#include "thread.h"
 
 const char *destination;
 struct io_uring *ring;
@@ -33,7 +35,6 @@ int main(int argc, const char **argv)
 	if (argc < 3)
 		usage(argc, argv);
 
-	printf("Here\n");
 	destination = argv[argc-1];
 
 	// ring parameters.
@@ -104,8 +105,11 @@ int main(int argc, const char **argv)
 		return EXIT_FAILURE;
 	}
 
+	// Start some threads.
+	for (int i = 0; i < 3; ++i)
+		start_process_thread(&local_ring);
+
 	// Enter io loop to begin recursive descent.
-	// use nftw
 	
 	// Iterate each argument of argv, skipping the first element (our own name)
 	// and the last element (the destination path)
@@ -123,7 +127,13 @@ int main(int argc, const char **argv)
 			fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
 	}
 
-	printf("lol\n");
+	// Request all the threads terminate.
+	for (struct thread_state *iter = thread_head; iter; iter = iter->next)
+	{
+		iter->running = false;
+		int res;
+		thrd_join(iter->handle, &res);
+	}
 
 	// Close the queue, we're done.
 	io_uring_queue_exit(ring);

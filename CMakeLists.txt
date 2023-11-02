@@ -27,8 +27,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/sysconf.h.cmake ${CMAKE_CURRENT
 # FIXME: this will become problematic in the future
 file(GLOB_RECURSE C_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR} "src/*.c")
 
-message(STATUS "SOURCES: ${C_SOURCE_FILES}")
-
 # Set source properties.
 set_source_files_properties(${C_SOURCE_FILES}
   PROPERTIES
