@@ -10,6 +10,9 @@
 
 #include "directory.h"
 
+const char *destination;
+struct io_uring *ring;
+
 __attribute__((noreturn))
 void usage(int argc, const char **argv) 
 {
@@ -31,7 +34,7 @@ int main(int argc, const char **argv)
 		usage(argc, argv);
 
 	printf("Here\n");
-	const char *destination = argv[argc-1];
+	destination = argv[argc-1];
 
 	// ring parameters.
 	struct io_uring_params ring_params;
@@ -90,9 +93,11 @@ int main(int argc, const char **argv)
 	// wake it with a syscall.
 	ring_params.sq_thread_idle = 2000;
 
-	struct io_uring ring;
+	struct io_uring local_ring;
+	// stack-allocate the ring, avoiding the heap.
+	ring = &local_ring;
 	// NOTE: not sure if 8 entries is enough, may need to be more?
-	ret = io_uring_queue_init_params(8, &ring, &ring_params);
+	ret = io_uring_queue_init_params(8, ring, &ring_params);
 	if (ret < 0)
 	{
 		fprintf(stderr, "Failed to initialize io_uring: %s (%d)\n", strerror(-ret), -ret);
@@ -104,7 +109,7 @@ int main(int argc, const char **argv)
 	
 	// Iterate each argument of argv, skipping the first element (our own name)
 	// and the last element (the destination path)
-	for (size_t i = 1; i < argc-1; ++i)
+	for (int i = 1; i < argc-1; ++i)
 	{
 		const char *path = argv[i];
 		if (!strcasecmp(path, "-h") || !strcasecmp(path, "--help"))
@@ -121,7 +126,7 @@ int main(int argc, const char **argv)
 	printf("lol\n");
 
 	// Close the queue, we're done.
-	io_uring_queue_exit(&ring);
+	io_uring_queue_exit(ring);
 
 	return EXIT_SUCCESS;
 }
