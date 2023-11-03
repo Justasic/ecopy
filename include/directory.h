@@ -5,13 +5,16 @@
 extern const char *destination;
 extern struct io_uring *ring;
 
+enum state_type
+{
+	ST_COPY,
+	ST_LINK,
+	ST_DIR
+};
+
 // Contains the state of an on-going copy being performed
 struct copystate
 {
-	// Where the source file is from
-	char *source;
-	// Where it's going
-	char *destination;
 	// What we need to do next with regards to our ring state.
 	int ring_state;
 	// It's open file descriptor for copying
@@ -26,6 +29,19 @@ struct copystate
 	char buffer[1];
 };
 
-extern void write_regular_file(struct io_uring *uring, struct copystate *state);
+// used to track what kind of state this is.
+struct state
+{
+	// What kind of state this is.
+	enum state_type type;
+	// The source path of the file.
+	char *source;
+	// The destination path of the file.
+	char *destination;
+	// if this is a regular file, this is copied.
+	struct copystate *copystate;
+};
 
-extern int descend_directory64(const char *fpath, const struct stat64 *sb, int typeflag, struct FTW *ftwbuf);
+extern void write_regular_file(struct io_uring *uring, struct state *state);
+
+extern void iterate_directory_set(const char *fpath);

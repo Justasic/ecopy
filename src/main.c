@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ftw.h>
 #include <strings.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <liburing.h>
@@ -109,6 +110,9 @@ int main(int argc, const char **argv)
 	for (int i = 0; i < 3; ++i)
 		start_process_thread(&local_ring);
 
+	// Create the directory if it does not yet exist.
+	mkdir(destination, 0755);
+
 	// Enter io loop to begin recursive descent.
 	
 	// Iterate each argument of argv, skipping the first element (our own name)
@@ -122,9 +126,10 @@ int main(int argc, const char **argv)
 		// Perform a recursive descent into each path given.
 		// Walk the directory, FTW_MOUNT keeps it in the same filesystem
 		// FTW_PHYS means symbolic links won't be dereferenced.
-		ret = nftw64(path, descend_directory64, nofile_limit.rlim_cur, FTW_MOUNT | FTW_PHYS);
-		if (ret < 0)
-			fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
+		iterate_directory_set(path);
+		//ret = nftw64(path, descend_directory64, nofile_limit.rlim_cur, FTW_MOUNT | FTW_PHYS);
+		//if (ret < 0)
+		//	fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
 	}
 
 	// Request all the threads terminate.

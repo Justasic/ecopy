@@ -44,7 +44,7 @@ int process_completions(void *value)
 			if (cqe->user_data != -1ull)
 			{
 				// It's a regular file copy operation (or an invalid pointer, either way we'll find out)
-				struct copystate *state = (struct copystate*)cqe->user_data;
+				struct state *state = (struct state*)cqe->user_data;
 				write_regular_file(tstate->ring, state);
 			}
 			++i;
