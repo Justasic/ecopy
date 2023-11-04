@@ -15,8 +15,6 @@ enum state_type
 // Contains the state of an on-going copy being performed
 struct copystate
 {
-	// What we need to do next with regards to our ring state.
-	int ring_state;
 	// It's open file descriptor for copying
 	int fd;
 	// Current copied amount (offset into the file)
@@ -34,14 +32,18 @@ struct state
 {
 	// What kind of state this is.
 	enum state_type type;
+	// What we need to do next with regards to our ring state.
+	int ring_state;
 	// The source path of the file.
 	char *source;
 	// The destination path of the file.
 	char *destination;
+	// Stat of the source file.
+	struct statx source_stat;
 	// if this is a regular file, this is copied.
 	struct copystate *copystate;
 };
 
 extern void write_regular_file(struct io_uring *uring, struct state *state);
 
-extern void iterate_directory_set(const char *fpath);
+extern void descend_directory(const char *fpath);
