@@ -41,7 +41,12 @@ struct state
 	// Stat of the source file.
 	struct statx source_stat;
 	// if this is a regular file, this is copied.
-	struct copystate *copystate;
+	// if it's a directory, then we keep track of what 
+	// part of the recursive directory creation we're in.
+	union {
+		struct copystate *copystate;
+		struct path *pathstate;
+	};
 };
 
 extern void write_regular_file(struct io_uring *uring, struct state *state);

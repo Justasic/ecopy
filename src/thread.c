@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "directory.h"
+#include "path.h"
 #include "thread.h"
 
 char *names[] = {
@@ -79,9 +80,20 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 				{
 					state->type = ST_DIR;
 					printf("Directory: %s -> %s\n", state->source, state->destination);
+
+					// First, normalize the path we need to create.
+					char *normalized = path_normalize(state->destination);
+					// next, split the path into components.
+					struct path *p = split_path(normalized);
+
+					// Begin concatenating parts of the path so we can mkdir them.
+					state->pathstate = p;
+					char *nextpath = construct_path(p);
+					printf("Initial mkdir for %s\n", nextpath);
+
 					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
 					io_uring_sqe_set_data(sqe, state);
-					io_uring_prep_mkdir(sqe, state->destination, state->source_stat.stx_mode);
+					io_uring_prep_mkdir(sqe, nextpath, state->source_stat.stx_mode);
 					state->ring_state = IORING_OP_MKDIRAT;
 					break;
 				}
@@ -135,7 +147,27 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 		{
 			// Descend down the next directory
 			if (cqe->res >= 0)
-				descend_directory(state->source);
+			{
+				// Descend the directory, we've made the path now.
+				if (state->pathstate->iterator == state->pathstate->length)
+				{
+					// we can deallocate our path info.
+					free_path(state->pathstate);
+					state->pathstate = NULL;
+					descend_directory(state->source);
+				}
+				else
+				{
+					// Path is incomplete, continue forming the next set of paths.
+					char *nextpath = construct_path(state->pathstate);
+					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+					io_uring_sqe_set_data(sqe, state);
+					io_uring_prep_mkdir(sqe, nextpath, state->source_stat.stx_mode);
+					state->ring_state = IORING_OP_MKDIRAT;
+					printf("Next path creation: %s\n", nextpath);
+					io_uring_submit(ring);
+				}
+			}
 			break;
 		}
 		default:
@@ -171,7 +203,7 @@ int process_completions(void *value)
 		{
 			struct state *state = (struct state*)cqe->user_data;
 			if (cqe->res < 0)
-				fprintf(stderr, "Failed %s on %s: %s\n", names[state->ring_state], state->source, strerror(-cqe->res));
+				fprintf(stderr, "Failed %s from %s to %s: %s\n", names[state->ring_state], state->source, state->destination, strerror(-cqe->res));
 			
 			process_operation(tstate->ring, cqe);
 			++i;

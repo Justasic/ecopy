@@ -124,12 +124,7 @@ int main(int argc, const char **argv)
 			usage(argc, argv);
 
 		// Perform a recursive descent into each path given.
-		// Walk the directory, FTW_MOUNT keeps it in the same filesystem
-		// FTW_PHYS means symbolic links won't be dereferenced.
 		descend_directory(path);
-		//ret = nftw64(path, descend_directory64, nofile_limit.rlim_cur, FTW_MOUNT | FTW_PHYS);
-		//if (ret < 0)
-		//	fprintf(stderr, "Failed to read %s: %s\n", path, strerror(errno));
 	}
 
 	// Request all the threads terminate.
