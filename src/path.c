@@ -24,8 +24,11 @@ struct path *split_path(const char *path)
 		exit(EXIT_FAILURE);
 	}
 
-    strcpy(p->path, path);
-    p->capacity = 8;
+	// strcpy here is busted as fuck, use memcpy instead.
+	memcpy(p->path, path, len);
+	p->path[len+1] = 0;
+	p->length = 0;
+    p->capacity = 8; // initial capacity so we don't call realloc a bunch.
     p->elements = calloc(p->capacity, sizeof(char*));
 
 	if (!p->elements)
@@ -36,7 +39,11 @@ struct path *split_path(const char *path)
 
     // Find the path separators in p->path and replace them with \0
     char *iter = p->path;
-    p->elements[p->length] = iter;
+	p->elements[p->length] = p->path;
+	if (!((iter[0] == '.' && !iter[1]) || (iter[0] == '.' && iter[1] == '.' && !iter[2])))
+		p->length++;
+	
+	// FIXME: this could be made better with a do-while loop maybe?
     while (*++iter)
     {
         if (*iter == '/')
@@ -71,9 +78,6 @@ struct path *split_path(const char *path)
 				p->length++;
         }
     }
-
-    // Correct the length (we're off by one)
-    p->length++;
 
     return p;
 }

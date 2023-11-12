@@ -17,6 +17,30 @@ project(ecopy
   LANGUAGES C
 )
 
+# Various CMake options.
+option(USE_MSAN "Use clang's memory sanitizer" OFF)
+option(USE_ASAN "Use clang's address sanitizer" OFF)
+option(USE_TSAN "Use clang's thread sanitizer" OFF)
+# option(BUILD_STATIC_EXECUTABLES "Build a statically linked executable" OFF)
+#
+# # https://cmake.org/pipermail/cmake/2010-September/039850.html
+# if(BUILD_STATIC_EXECUTABLES)
+# 	set(CMAKE_EXE_LINKER_FLAGS -static)
+# 	set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+# 	set(CMAKE_EXE_LINK_DYNAMIC_C_FLAGS)       # remove -Wl,-Bdynamic
+# 	# set(CMAKE_EXE_LINK_DYNAMIC_CXX_FLAGS)
+# 	set(CMAKE_SHARED_LIBRARY_C_FLAGS)         # remove -fPIC
+# 	# set(CMAKE_SHARED_LIBRARY_CXX_FLAGS)
+# 	set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)    # remove -rdynamic
+# 	# set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS)
+# 	# Maybe this works as well, haven't tried yet.
+# 	# set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS FALSE)
+# else(BUILD_STATIC_EXECUTABLES)
+# 	# Set RPATH to use for installed targets; append linker search path
+# 	set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${LOFAR_LIBDIR}")
+# 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+# endif(BUILD_STATIC_EXECUTABLES)
+
 # Find liburing
 find_package(liburing REQUIRED)
 
@@ -58,8 +82,50 @@ target_compile_options(${PROJECT_NAME}
     -Werror=implicit-function-declaration
     -Wimplicit-fallthrough
     -Wno-unused-parameter
-    -fPIC
+	-fPIC
 )
+
+if (USE_MSAN)
+	message(STATUS "Using memory sanitizer...")
+	# Specify the compile option
+	target_compile_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=memory
+	)
+	# Specify the link option
+	target_link_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=memory
+	)
+endif (USE_MSAN)
+
+if (USE_ASAN)
+	message(STATUS "Using address sanitizer...")
+	# Specify the compile option, also enable ubsan
+	target_compile_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=address,undefined
+	)
+	# Specify the link option
+	target_link_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=address,undefined
+	)
+endif (USE_ASAN)
+
+if (USE_TSAN)
+	message(STATUS "Using thread sanitizer...")
+	# Specify the compile option
+	target_compile_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=thread
+	)
+	# Specify the link option
+	target_link_options(${PROJECT_NAME}
+		PRIVATE
+			-fsanitize=thread
+	)
+endif (USE_TSAN)
 
 # Add include directories
 target_include_directories(${PROJECT_NAME}

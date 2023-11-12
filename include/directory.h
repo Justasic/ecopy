@@ -34,6 +34,9 @@ struct state
 	enum state_type type;
 	// What we need to do next with regards to our ring state.
 	int ring_state;
+	// The root path so we can remove it from the destination.
+	// (so ecopy /path/to/source /dest becomes /dest/source and not /dest/path/to/source)
+	char *root_path;
 	// The source path of the file.
 	char *source;
 	// The destination path of the file.
