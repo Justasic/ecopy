@@ -89,9 +89,22 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 					// Begin concatenating parts of the path so we can mkdir them.
 					state->pathstate = p;
 					char *nextpath = construct_path(p);
-					printf("Initial mkdir for %s\n", nextpath);
 
-					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+					printf("Initial mkdir for %s\n", nextpath);
+					printf(" - source: %s\n", state->source);
+					printf(" - destination: %s\n", state->destination);
+
+					struct io_uring_sqe *sqe = NULL;
+
+					size_t count = 0;
+					while (!(sqe = io_uring_get_sqe(ring)) || ++count >= 10000)
+						io_uring_submit(ring);
+
+					if (!sqe)
+					{
+						fprintf(stderr, "FATAL: Cannot acquire a new submission request, ring is full! This is a bug.\n");
+						exit(EXIT_FAILURE);
+					}
 					io_uring_sqe_set_data(sqe, state);
 					io_uring_prep_mkdir(sqe, nextpath, state->source_stat.stx_mode);
 					state->ring_state = IORING_OP_MKDIRAT;
@@ -99,6 +112,7 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 				}
 				case S_IFLNK: // Symlink.
 				{
+#if 0
 					state->type = ST_LINK; 
 					char symbuffer[8192] = {0};
 
@@ -111,13 +125,25 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 						symbuffer[pathlen] = 0;
 
 					printf("Symlink: %s -> %s\n", state->destination, symbuffer);
-					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+					struct io_uring_sqe *sqe = NULL;
+
+					size_t count = 0;
+					while (!(sqe = io_uring_get_sqe(ring)) || ++count >= 10000)
+						io_uring_submit(ring);
+
+					if (!sqe)
+					{
+						fprintf(stderr, "FATAL: Cannot acquire a new submission request, ring is full! This is a bug.\n");
+						exit(EXIT_FAILURE);
+					}
 					io_uring_sqe_set_data(sqe, state);
 					io_uring_prep_symlink(sqe, state->destination, symbuffer);
 					state->ring_state = IORING_OP_SYMLINKAT;
+#endif
 					break;
 				}
 				case S_IFREG: // Regular file.
+#if 0
 					state->type = ST_COPY; 
 
 					printf("File: %s -> %s\n", state->source, state->destination);
@@ -131,9 +157,20 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 					cp->total_size  = state->source_stat.stx_size;
 
 					// prepare the first SQE
-					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+					struct io_uring_sqe *sqe = NULL;
+
+					size_t count = 0;
+					while (!(sqe = io_uring_get_sqe(ring)) || ++count >= 10000)
+						io_uring_submit(ring);
+
+					if (!sqe)
+					{
+						fprintf(stderr, "FATAL: Cannot acquire a new submission request, ring is full! This is a bug.\n");
+						exit(EXIT_FAILURE);
+					}
 					io_uring_prep_openat(sqe, AT_FDCWD, state->source, 0, state->source_stat.stx_mode);
 					io_uring_sqe_set_data(sqe, state);
+#endif
 					break;
 				default: // Skip anything else, waste of a syscall.
 					return;
@@ -148,19 +185,32 @@ void process_operation(struct io_uring *uring, struct io_uring_cqe *cqe)
 			// Descend down the next directory
 			if (cqe->res >= 0)
 			{
+
 				// Descend the directory, we've made the path now.
 				if (state->pathstate->iterator == state->pathstate->length)
 				{
-					// we can deallocate our path info.
-					free_path(state->pathstate);
-					state->pathstate = NULL;
-					descend_directory(state->source);
+					printf("Attempted to deallocate %s, %zu == %zu\n", state->destination, state->pathstate->iterator, state->pathstate->length);
+					// printf("Setting path state to null for %s\n", state->destination);
+					// // we can deallocate our path info.
+					// free_path(state->pathstate);
+					// state->pathstate = NULL;
+					// descend_directory(state->source);
 				}
 				else
 				{
 					// Path is incomplete, continue forming the next set of paths.
 					char *nextpath = construct_path(state->pathstate);
-					struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+					struct io_uring_sqe *sqe = NULL;
+
+					size_t count = 0;
+					while (!(sqe = io_uring_get_sqe(ring)) || ++count >= 10000)
+						io_uring_submit(ring);
+
+					if (!sqe)
+					{
+						fprintf(stderr, "FATAL: Cannot acquire a new submission request, ring is full! This is a bug.\n");
+						exit(EXIT_FAILURE);
+					}
 					io_uring_sqe_set_data(sqe, state);
 					io_uring_prep_mkdir(sqe, nextpath, state->source_stat.stx_mode);
 					state->ring_state = IORING_OP_MKDIRAT;

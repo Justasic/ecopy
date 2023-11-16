@@ -111,7 +111,7 @@ int main(int argc, const char **argv)
 		start_process_thread(&local_ring);
 
 	// Create the directory if it does not yet exist.
-	mkdir(destination, 0755);
+	// mkdir(destination, 0755);
 
 	// Enter io loop to begin recursive descent.
 	

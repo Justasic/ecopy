@@ -80,6 +80,7 @@ target_compile_options(${PROJECT_NAME}
     -pedantic
     -Werror=shadow
     -Werror=implicit-function-declaration
+	-Werror=format
     -Wimplicit-fallthrough
     -Wno-unused-parameter
 	-fPIC
@@ -142,3 +143,9 @@ target_include_directories(${PROJECT_NAME}
 
 # Add libraries to link against (if any)
 target_link_libraries(${PROJECT_NAME} ${LIBURING_LIBRARY})
+
+# Enable the cmake testing framework
+enable_testing()
+
+# Add tests subdir.
+add_subdirectory(test)

@@ -1,3 +1,4 @@
+#pragma once
 #include <ftw.h>
 #include <liburing.h>
 

@@ -90,7 +90,18 @@ void descend_directory(const char *fdir)
 			state->destination = strdup(buffer);
 
 			// Perform a stat on the file, we need size and type info.
-			struct io_uring_sqe *sqe = io_uring_get_sqe(ring);
+			struct io_uring_sqe *sqe = NULL;
+
+			size_t count = 0;
+			while (!(sqe = io_uring_get_sqe(ring)) || ++count >= 10000)
+				io_uring_submit(ring);
+
+			if (!sqe)
+			{
+				fprintf(stderr, "FATAL: Cannot acquire a new submission request, ring is full! This is a bug.\n");
+				exit(EXIT_FAILURE);
+			}
+			
 			io_uring_sqe_set_data(sqe, state);
 			io_uring_prep_statx(sqe, AT_FDCWD, state->source, AT_SYMLINK_NOFOLLOW, STATX_SIZE|STATX_TYPE, &state->source_stat);
 			io_uring_submit(ring);
